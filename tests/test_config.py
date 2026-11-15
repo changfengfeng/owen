@@ -50,3 +50,17 @@ def test_configuration_errors_do_not_disclose_credentials():
 def test_sandbox_limits_cannot_be_disabled(changes):
     with pytest.raises(ValidationError):
         Settings(**changes)
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"llm_max_output_tokens": 127},
+        {"llm_max_output_tokens": 65_537},
+        {"llm_max_truncation_retries": -1},
+        {"llm_max_truncation_retries": 6},
+    ],
+)
+def test_model_output_and_recovery_limits_are_bounded(changes):
+    with pytest.raises(ValidationError):
+        Settings(**changes)

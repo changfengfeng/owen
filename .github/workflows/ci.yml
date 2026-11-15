@@ -5,6 +5,19 @@ permissions:
 jobs:
   unit:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: cloudagent
+          POSTGRES_PASSWORD: local-test-password
+          POSTGRES_DB: cloudagent_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U cloudagent -d cloudagent_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://cloudagent:local-test-password@127.0.0.1:5432/cloudagent_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

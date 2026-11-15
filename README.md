@@ -16,6 +16,15 @@
 
 这是可运行的受邀制 SaaS 首版，不是已经过公网安全审计的商业托管服务；部署前阅读 [安全边界](docs/security.md)。
 
+## 设计文档
+
+| 文档 | 内容 |
+| --- | --- |
+| [当前架构与沙箱选型](docs/architecture.md) | 首版数据流、信任边界，以及选择 Docker + gVisor 的原因 |
+| [云端 AI 软件工程师实施计划](docs/cloud-ai-engineer-plan.md) | 向类 Devin 产品演进的 P0–P5 路线、受影响文件和验收标准；这些阶段尚未实施 |
+| [安全边界](docs/security.md) | 不可信代码、凭据、执行隔离和未覆盖的生产能力 |
+| [部署说明](docs/deployment.md) | PostgreSQL、gVisor、HTTPS 与 Worker 部署 |
+
 ## 本地启动
 
 需要 Python 3.11+、[uv](https://docs.astral.sh/uv/)、Docker 和 [gVisor runsc](https://gvisor.dev/docs/user_guide/install/)。

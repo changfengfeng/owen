@@ -212,7 +212,7 @@ async def test_recovery_discards_all_truncated_calls_and_counts_retry_usage(monk
     requests = provider(
         monkeypatch,
         [
-            completion("length", 70, discarded),
+            completion("length", 70, discarded, "discarded partial text"),
             completion("tool_calls", 80, good),
             completion(tokens=90, content="done"),
         ],
@@ -239,22 +239,24 @@ async def test_recovery_discards_all_truncated_calls_and_counts_retry_usage(monk
     assert len([kind for kind, _, _ in recorded if kind == "model_retry"]) == 1
     assert "None of its tool calls were executed" in requests[1]["messages"][-1]["content"]
     assert "discard-" not in json.dumps(requests[1:])
+    assert "discarded partial text" not in json.dumps(requests[1:])
 
 
-async def test_truncation_recovery_has_a_hard_retry_limit(monkeypatch):
-    requests = provider(monkeypatch, [completion("length"), completion("length")])
+@pytest.mark.parametrize("limit", [0, 1])
+async def test_truncation_recovery_has_a_hard_retry_limit(monkeypatch, limit):
+    requests = provider(monkeypatch, [completion("length")] * (limit + 1))
     recorded = []
 
     async def emit(kind, data, tokens):
         recorded.append((kind, data, tokens))
 
     with pytest.raises(AgentError, match="recovery limit exhausted"):
-        await CodingAgent(Settings(llm_api_key="test-key", llm_max_truncation_retries=1)).run(
+        await CodingAgent(Settings(llm_api_key="test-key", llm_max_truncation_retries=limit)).run(
             "task", object(), emit, 24_000
         )
-    assert len(requests) == 2
-    assert sum(tokens for _, _, tokens in recorded) == 200
-    assert len([kind for kind, _, _ in recorded if kind == "model_retry"]) == 1
+    assert len(requests) == limit + 1
+    assert sum(tokens for _, _, tokens in recorded) == (limit + 1) * 100
+    assert len([kind for kind, _, _ in recorded if kind == "model_retry"]) == limit
 
 
 async def test_recovery_cannot_exceed_task_budget(monkeypatch):

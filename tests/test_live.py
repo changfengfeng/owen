@@ -12,19 +12,21 @@ from cloud_agent.worker import Worker
 
 @pytest.mark.live
 @pytest.mark.integration
-@pytest.mark.parametrize("truncate", [False, True], ids=["normal", "truncated-write-recovery"])
-async def test_real_model_codes_and_runs_tests(tmp_path, truncate):
+@pytest.mark.parametrize("mode", ["normal", "truncated-write-recovery", "recovery-exhausted"])
+async def test_real_model_codes_and_runs_tests(tmp_path, mode):
     key = os.environ.get("CLOUD_LLM_API_KEY")
     if not key:
         pytest.skip("CLOUD_LLM_API_KEY is not configured")
     from cloud_agent.config import Settings
 
+    truncate = mode != "normal"
     settings = Settings(
         database_url=f"sqlite:///{tmp_path / 'live.db'}",
         llm_api_key=SecretStr(key),
         task_timeout_seconds=300,
         task_token_budget=40_000 if truncate else 24_000,
         llm_max_output_tokens=512 if truncate else 4096,
+        llm_max_truncation_retries=0 if mode == "recovery-exhausted" else 2,
     )
     engine = make_engine(settings)
     init_db(engine)
@@ -57,22 +59,30 @@ async def test_real_model_codes_and_runs_tests(tmp_path, truncate):
     task = queue.submit(tenant_id, user_id, prompt)
     await Worker(settings, queue).run(once=True)
     finished = queue.get(tenant_id, task.id)
+    events = queue.events(tenant_id, task.id)
+    usage = [json.loads(event.data) for event in events if event.kind == "usage"]
+    assert finished.used_tokens > 0 and queue.usage(tenant_id)["reserved_tokens"] == 0
+    assert sum(item["tokens"] for item in usage) == finished.used_tokens
+    assert all(not item["estimated"] for item in usage)
+    if truncate:
+        assert any(item["finish_reason"] == "length" for item in usage)
+    if mode == "recovery-exhausted":
+        assert finished.status == "failed"
+        assert "recovery limit exhausted" in finished.error
+        assert not any(event.kind == "model_retry" for event in events)
+        print(f"\nLive bounded failure passed: used_tokens={finished.used_tokens}")
+        engine.dispose()
+        return
     assert finished.status == "succeeded", finished.error
     module = "rows" if truncate else "slugify"
     assert f"{module}.py" in finished.patch and f"test_{module}.py" in finished.patch
-    events = queue.events(tenant_id, task.id)
     results = [json.loads(event.data) for event in events if event.kind == "tool_result"]
     assert any(
         "Ran " in result.get("output", "") and "OK" in result["output"] and result["exit_code"] == 0
         for result in results
     )
-    assert finished.used_tokens > 0 and queue.usage(tenant_id)["reserved_tokens"] == 0
-    usage = [json.loads(event.data) for event in events if event.kind == "usage"]
-    assert sum(item["tokens"] for item in usage) == finished.used_tokens
-    assert all(not item["estimated"] for item in usage)
     if truncate:
         assert any(event.kind == "model_retry" for event in events)
-        assert any(item["finish_reason"] == "length" for item in usage)
     print(
         f"\nLive model passed: used_tokens={finished.used_tokens}, patch_bytes={len(finished.patch.encode())}"
     )

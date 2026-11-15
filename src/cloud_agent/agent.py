@@ -111,12 +111,14 @@ class CodingAgent:
         async def charge(interrupted: bool = False) -> int:
             nonlocal charged
             reported = usage.get("total_tokens") if isinstance(usage, dict) else None
-            estimated = (
-                not isinstance(reported, int)
-                or isinstance(reported, bool)
-                or not 0 < reported <= remaining
-            )
-            tokens = input_bound + maximum if estimated else reported
+            if (
+                isinstance(reported, int)
+                and not isinstance(reported, bool)
+                and 0 < reported <= remaining
+            ):
+                tokens, estimated = reported, False
+            else:
+                tokens, estimated = input_bound + maximum, True
             data = {
                 "tokens": tokens,
                 "estimated": estimated,
@@ -191,7 +193,8 @@ class CodingAgent:
                 }
                 raise AgentError(
                     errors.get(
-                        finish, "Model stream ended without a complete turn (missing finish_reason)"
+                        finish or "",
+                        "Model stream ended without a complete turn (missing finish_reason)",
                     )
                 )
         except BaseException as error:

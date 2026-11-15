@@ -66,9 +66,13 @@ uv run pytest -q -m 'not live'
 TEST_DATABASE_URL='postgresql+psycopg://user:password@localhost/testdb' uv run pytest -q -m 'not live'
 # 真实模型在 gVisor 内改码并运行 unittest，消耗模型额度
 uv run pytest -q -s -m live
+# 全量无跳过验收：同时配置 TEST_DATABASE_URL、CLOUD_LLM_API_KEY，并准备上述容器环境
+uv run pytest -q -s
 ```
 
-真实模型测试需要 `CLOUD_LLM_API_KEY`，未配置时跳过。前端是无构建步骤的静态 HTML/CSS/JS；可选使用 `node --check src/cloud_agent/static/app.js` 检查语法、`node --test tests/frontend.test.cjs` 检查客户端账号切换隔离；这些单元测试不替代浏览器验收。
+真实模型测试需要 `CLOUD_LLM_API_KEY`，未配置时跳过；覆盖正常改码、强制截断后恢复和恢复额度耗尽，都会消耗模型 Token。未配置 `TEST_DATABASE_URL` 时 PostgreSQL 并发测试也会跳过。CI 提供 PostgreSQL，但不运行容器或真实模型用例。
+
+前端是无构建步骤的静态 HTML/CSS/JS；使用 Node.js 24 运行 `node --check src/cloud_agent/static/app.js` 检查语法、`node --test tests/frontend.test.cjs` 检查客户端账号切换隔离；这些单元测试不替代浏览器验收。
 
 ## 目录
 

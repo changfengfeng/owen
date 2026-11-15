@@ -252,8 +252,9 @@ class CodingAgent:
                             "None of its tool calls were executed. Continue from the last confirmed "
                             "tool result; do not repeat completed actions from earlier turns. "
                             "Reissue the intended work as smaller, complete tool calls. "
-                            "Split large files into short writes, or use a short script to generate "
-                            "repetitive content. Keep explanations brief and run relevant tests.",
+                            "write_file replaces the entire file. For large files use execute with "
+                            "small create/append steps, or a short script to generate repetitive "
+                            "content. Keep explanations brief and run relevant tests.",
                         }
                     )
                     continue

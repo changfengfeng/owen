@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     llm_model: str = "deepseek-chat"
     llm_api_key: SecretStr = SecretStr("")
     llm_max_turns: int = Field(default=24, gt=0)
+    llm_max_output_tokens: int = Field(default=4096, ge=128, le=65_536)
+    llm_max_truncation_retries: int = Field(default=2, ge=0, le=5)
     sandbox_image: str = "cloud-agent-sandbox:local"
     sandbox_runtime: str = "runsc"
     allow_insecure_sandbox: bool = False

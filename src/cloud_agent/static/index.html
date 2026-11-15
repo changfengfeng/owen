@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Cloud Agent · 编码工作空间</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%23317cff'/%3E%3Cpath d='m16 12-8 8 8 8m8-16 8 8-8 8' fill='none' stroke='white' stroke-width='3'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="/static/style.css" />
+    <script src="/static/app.js" defer></script>
+  </head>
+  <body>
+    <section id="auth-view" class="auth-layout">
+      <div class="auth-story">
+        <a href="/" class="brand"
+          ><span class="brand-icon">&lt;/&gt;</span> Cloud Agent</a
+        >
+        <div class="story-body">
+          <span class="eyebrow">YOUR CLOUD CODING WORKSPACE</span>
+          <h1>把想法交给 Agent。<br /><span>把代码带回现实。</span></h1>
+          <p>
+            一个任务，一个独立环境。让 Agent
+            阅读代码、实现修改、运行测试，所有过程清晰可见。
+          </p>
+          <div class="story-terminal">
+            <div class="terminal-dots">
+              <i></i><i></i><i></i><span>工作流程</span>
+            </div>
+            <div><b>01</b> 描述目标，选择仓库</div>
+            <div><b>02</b> 在隔离的云端环境中执行</div>
+            <div><b>03</b> 审阅日志，下载代码补丁</div>
+            <div class="terminal-note">你的模型密钥不会进入代码执行环境。</div>
+          </div>
+        </div>
+        <span class="story-footer"
+          >BUILT FROM FIRST PRINCIPLES · NO AGENT FRAMEWORK</span
+        >
+      </div>
+      <div class="auth-panel">
+        <form id="auth-form" class="auth-card">
+          <span class="eyebrow">LET’S BUILD SOMETHING</span>
+          <h2 id="auth-title">欢迎回来</h2>
+          <p id="auth-subtitle">登录你的云端编码工作空间。</p>
+          <label
+            >邮箱<input
+              id="email"
+              type="email"
+              required
+              autocomplete="email"
+              placeholder="you@company.com"
+              maxlength="254"
+          /></label>
+          <label
+            >密码<input
+              id="password"
+              type="password"
+              required
+              minlength="12"
+              maxlength="256"
+              autocomplete="current-password"
+              placeholder="至少 12 个字符"
+          /></label>
+          <div id="register-fields" hidden>
+            <label
+              >工作空间名称<input
+                id="workspace"
+                maxlength="120"
+                value="我的工作空间" /></label
+            ><label
+              >注册码 <span class="muted">（由管理员提供）</span
+              ><input
+                id="signup-code"
+                maxlength="256"
+                autocomplete="off"
+                placeholder="开发环境可留空"
+            /></label>
+          </div>
+          <p id="auth-error" class="error" role="alert"></p>
+          <button id="auth-submit" class="primary wide" type="submit">
+            登录工作空间 <span>→</span>
+          </button>
+          <div class="auth-switch">
+            <span id="auth-switch-label">还没有账号？</span
+            ><button type="button" id="auth-toggle" class="text-button">
+              创建工作空间
+            </button>
+          </div>
+          <p class="auth-footnote">独立租户 · 有界配额 · 持久化任务</p>
+        </form>
+      </div>
+    </section>
+    <div id="app-view" class="shell" hidden>
+      <aside class="sidebar">
+        <a href="/" class="brand"
+          ><span class="brand-icon">&lt;/&gt;</span> Cloud Agent</a
+        >
+        <div class="workspace-badge">
+          <span class="workspace-avatar">W</span>
+          <div>
+            <strong id="workspace-name">工作空间</strong><small>独立租户</small>
+          </div>
+          <span class="muted">⌄</span>
+        </div>
+        <span class="nav-caption">WORKSPACE</span
+        ><button class="nav-item active" id="tasks-nav">
+          <span>▤</span> 编码任务 <span id="task-count" class="count">0</span>
+        </button>
+        <div class="sidebar-bottom">
+          <div class="quota-card">
+            <div class="quota-heading">
+              本月 Token <span id="quota-percent">0%</span>
+            </div>
+            <progress id="quota-progress" value="0" max="100"></progress
+            ><small id="quota-description">加载配额…</small>
+            <div id="daily-description" class="daily-quota"></div>
+          </div>
+          <div class="account">
+            <span class="user-avatar" id="user-initial">U</span>
+            <div>
+              <strong id="user-email">用户</strong><small>工作空间所有者</small>
+            </div>
+            <button
+              id="logout"
+              class="icon-button"
+              title="退出登录"
+              aria-label="退出登录"
+            >
+              ↪
+            </button>
+          </div>
+        </div>
+      </aside>
+      <div class="main-shell">
+        <header class="topbar">
+          <div>
+            <span class="breadcrumb">工作空间</span><span class="slash">/</span
+            ><strong>编码任务</strong>
+          </div>
+          <span class="environment-pill"><i></i> 云端执行</span>
+        </header>
+        <main>
+          <div class="page-heading">
+            <div>
+              <span class="eyebrow">BUILD, TEST, ITERATE</span>
+              <h1>让下一次提交，从这里开始。</h1>
+              <p>描述你想完成的工作，Agent 会在独立环境中实现并验证。</p>
+            </div>
+            <button id="refresh" class="secondary">↻ 刷新</button>
+          </div>
+          <form id="task-form" class="composer">
+            <div class="composer-label">
+              <span class="spark">✧</span> 新建编码任务
+              <span class="composer-hint">自然语言 → 代码变更</span>
+            </div>
+            <label class="sr-only" for="prompt">任务描述</label
+            ><textarea
+              id="prompt"
+              required
+              maxlength="12000"
+              placeholder="例如：为项目添加输入校验，并编写和运行对应的单元测试。"
+            ></textarea>
+            <div class="composer-bottom">
+              <div class="repo-input">
+                <span>⑂</span
+                ><label class="sr-only" for="repo">GitHub 仓库</label
+                ><input
+                  id="repo"
+                  type="url"
+                  maxlength="300"
+                  placeholder="https://github.com/owner/repo（可留空，从零开始）"
+                />
+              </div>
+              <button id="create-task" type="submit" class="primary">
+                启动任务 <span>↑</span>
+              </button>
+            </div>
+            <div class="composer-footer">
+              <span>隔离环境 · 默认断网 · 公共 GitHub 仓库</span
+              ><span id="task-budget"></span>
+            </div>
+          </form>
+          <p id="global-error" class="error" role="alert"></p>
+          <div class="section-heading">
+            <h2>任务活动 <span id="activity-count">0</span></h2>
+            <span id="active-description" class="muted"
+              >等待你的第一个任务</span
+            >
+          </div>
+          <div class="workbench">
+            <section class="task-list-panel">
+              <div id="task-list" class="task-list"></div>
+              <div id="empty-list" class="empty-list">
+                <div class="empty-symbol">&lt;/&gt;</div>
+                <h3>从一个想法开始</h3>
+                <p>提交第一个任务后，<br />在这里跟踪它的每一步。</p>
+              </div>
+            </section>
+            <section class="detail-panel">
+              <div id="empty-detail" class="empty-detail">
+                <div class="detail-grid">⌘</div>
+                <h3>你的云端编码搭档已就位</h3>
+                <p>新建任务，或选择一项任务查看执行过程与代码变更。</p>
+                <div class="capability-row">
+                  <span>读取代码</span><span>执行测试</span
+                  ><span>导出补丁</span>
+                </div>
+              </div>
+              <div id="task-detail" hidden>
+                <div class="detail-header">
+                  <div>
+                    <span id="detail-status" class="status"></span
+                    ><span id="detail-id" class="mono muted"></span>
+                  </div>
+                  <button id="cancel-task" class="danger secondary">
+                    停止任务
+                  </button>
+                </div>
+                <h3 id="detail-prompt" class="detail-prompt"></h3>
+                <div id="detail-meta" class="detail-meta"></div>
+                <div class="tabs" role="tablist">
+                  <button
+                    id="log-tab"
+                    class="tab active"
+                    role="tab"
+                    aria-selected="true"
+                  >
+                    执行过程</button
+                  ><button
+                    id="diff-tab"
+                    class="tab"
+                    role="tab"
+                    aria-selected="false"
+                  >
+                    代码变更 <span id="diff-count"></span></button
+                  ><a id="download-patch" class="download" hidden>↓ 下载补丁</a>
+                </div>
+                <div id="log-panel">
+                  <div
+                    id="event-log"
+                    class="event-log"
+                    aria-live="polite"
+                  ></div>
+                  <div id="summary" class="summary" hidden></div>
+                </div>
+                <pre id="diff-panel" class="diff-panel" hidden></pre>
+              </div>
+            </section>
+          </div>
+          <footer class="main-footer">
+            <span>Cloud Agent · 可审阅的自主编码</span
+            ><a href="/docs" target="_blank" rel="noopener">API 文档 ↗</a>
+          </footer>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

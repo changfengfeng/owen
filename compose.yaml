@@ -1,0 +1,85 @@
+services:
+  db:
+    image: postgres:16-alpine@sha256:f377d590e5474681d4d7838635031a2b50647923b7abfa803ce9b5ff35d5c663
+    environment:
+      POSTGRES_DB: cloudagent
+      POSTGRES_USER: cloudagent
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes: ["postgres-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cloudagent -d cloudagent"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  init:
+    build: .
+    image: cloud-agent-control:local
+    command: ["cloud-agent-db"]
+    environment: &common
+      CLOUD_ENVIRONMENT: production
+      CLOUD_DATABASE_URL: ${CLOUD_DATABASE_URL:?Set a postgresql+psycopg URL (URL-encode the password)}
+      CLOUD_PUBLIC_ORIGIN: https://${CLOUD_DOMAIN:?Set CLOUD_DOMAIN}
+      CLOUD_SECURE_COOKIES: "true"
+      CLOUD_SIGNUP_CODE: ${CLOUD_SIGNUP_CODE:?Set CLOUD_SIGNUP_CODE}
+      CLOUD_REGISTRATION_ENABLED: ${CLOUD_REGISTRATION_ENABLED:-true}
+      CLOUD_DAILY_TASKS: ${CLOUD_DAILY_TASKS:-20}
+      CLOUD_CONCURRENT_TASKS: ${CLOUD_CONCURRENT_TASKS:-2}
+      CLOUD_MONTHLY_TOKENS: ${CLOUD_MONTHLY_TOKENS:-500000}
+      CLOUD_TASK_TOKEN_BUDGET: ${CLOUD_TASK_TOKEN_BUDGET:-24000}
+    depends_on:
+      db: {condition: service_healthy}
+    restart: "no"
+  api:
+    image: cloud-agent-control:local
+    environment:
+      <<: *common
+      # API is reachable only inside the Compose network, through trusted Caddy.
+      CLOUD_TRUSTED_PROXIES: "*"
+    depends_on:
+      init: {condition: service_completed_successfully}
+    expose: ["8000"]
+    read_only: true
+    tmpfs: ["/tmp:size=64m,uid=10001,gid=10001"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3)"]
+      interval: 10s
+      timeout: 4s
+      retries: 10
+    restart: unless-stopped
+  worker:
+    image: cloud-agent-control:local
+    command: ["cloud-agent-worker"]
+    environment:
+      <<: *common
+      CLOUD_LLM_API_KEY: ${CLOUD_LLM_API_KEY:?Set CLOUD_LLM_API_KEY in the operator environment}
+      CLOUD_LLM_BASE_URL: ${CLOUD_LLM_BASE_URL:-https://api.deepseek.com/v1}
+      CLOUD_LLM_MODEL: ${CLOUD_LLM_MODEL:-deepseek-chat}
+      CLOUD_SANDBOX_RUNTIME: runsc
+      CLOUD_SANDBOX_IMAGE: ${CLOUD_SANDBOX_IMAGE:-cloud-agent-sandbox:local}
+    # This trusted worker controls the execution host. Never mount this socket into api or task containers.
+    volumes: ["/var/run/docker.sock:/var/run/docker.sock"]
+    group_add: ["${DOCKER_GID:?Set DOCKER_GID to the execution daemon socket group}"]
+    depends_on:
+      init: {condition: service_completed_successfully}
+    read_only: true
+    tmpfs: ["/tmp:size=64m,uid=10001,gid=10001"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    stop_grace_period: 45s
+    restart: unless-stopped
+  proxy:
+    image: caddy:2-alpine
+    ports: ["80:80", "443:443"]
+    environment:
+      CLOUD_DOMAIN: ${CLOUD_DOMAIN:?Set CLOUD_DOMAIN}
+    volumes: ["./Caddyfile:/etc/caddy/Caddyfile:ro", "caddy-data:/data", "caddy-config:/config"]
+    depends_on:
+      api: {condition: service_healthy}
+    restart: unless-stopped
+volumes:
+  postgres-data:
+  caddy-data:
+  caddy-config:
